@@ -1,17 +1,65 @@
-var http = require('http');
+var express = require('express');
+var app = express();
 var config = require('./config');
 var port = process.env.PORT || config.server.port || 3000;
+var superagent = require('superagent');
 
-var server = http.createServer(function (req, res) {
-  res.writeHead(200, {'Content-Type': 'text/plain'});
-  res.end('Hello World\n');
+app.set('view engine', 'jade');
+app.set('views', 'jade')
+app.use('/static', express.static('static'));
+
+app.get('/', function (req, res) {
+    res.render('index');
 });
 
-server.listen(port, function(e) {
-    if (e) {
-        console.log('Failed to start server:', e);
-        process.exit(1);
-    }
+app.post('/domain/:domain', function (httpReq, httpResp) {
+    var domain = httpReq.params.domain;
+    var fileUrl = 'https://' + domain + '/apple-app-site-association';
+    var respObj = {
+        badDns: undefined,
+        httpsFailure: undefined,
+        serverError: undefined,
+        redirects: undefined
+    };
 
+    superagent
+        .get(fileUrl)
+        .redirects(0)
+        .end(function(err, res) {
+            var respCode = 400;
+
+            if (err && !res) {
+                // Unable to resolve DNS name
+                if (err.code == 'ENOTFOUND') {
+                    respObj.badDns = true;
+                }
+                // Doesn't support HTTPS
+                else if (err.code == 'ECONNREFUSED') {
+                    respObj.badDns = false;
+                    respObj.httpsFailure = true;
+                }
+                else {
+                    console.log(err)
+                }
+            }
+            else {
+                respObj.badDns = false;
+                respObj.httpsFailure = false;
+                respObj.serverError = res.status >= 400;
+
+                if (!respObj.serverError) {
+                    respObj.redirects = res.status >= 300;
+
+                    if (!respObj.redirects) {
+                        respCode = 200;
+                    }
+                }
+            }
+
+            httpResp.status(respCode).json(respObj);
+        });
+});
+
+var server = app.listen(port, function() {
     console.log('Server running on port ' + port);
 });
