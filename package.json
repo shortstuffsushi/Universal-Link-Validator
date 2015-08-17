@@ -3,5 +3,8 @@
   "version": "0.0.1",
   "license": "MIT",
   "description": "A simple tool for testing your Apple App Site Association setup.",
-  "author": "Graham Mueller <graham.mueller315@gmail.com>"
+  "author": "Graham Mueller <graham.mueller315@gmail.com>",
+  "scripts": {
+    "start": "node app.js"
+  }
 }
