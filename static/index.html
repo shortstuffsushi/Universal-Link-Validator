@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-US" lang="en-US" ng-app="UniversalLinkValidator" class="ng-scope">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Universal Link Validator</title>
+    <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+  </head>
+
+  <body ng-controller="MainController">
+    <nav class="navbar navbar-default navbar-static-top">
+      <div class="container">
+        <div class="navbar-header">
+          <a class="navbar-brand" href="/">Universal Link Validator</a>
+        </div>
+      </div>
+    </nav>
+
+    <main class="container ng-scope" ng-view>
+      <div class="well form-horizontal">
+        Enter your domain (e.g. foo.com) to check whether your apple-app-site-association is properly hosted. Alternatively, provide a packaged app .ipa file, and we'll check that it contains the proper entitlements and validate any listed domains.
+        <br/><br/>
+        <div class="form-group">
+          <label class="col-sm-2 control-label">Domain</label>
+          <div class="col-sm-4">
+            <input class="form-control" id="domain" type="text">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="col-sm-2 control-label">App file</label>
+          <div class="col-sm-4">
+            <input class="form-control" id="ipa" type="file">
+          </div>
+        </div>
+        <div class="form-group">
+          <div class="col-sm-offset-2 col-sm-1">
+            <button class="btn btn-primary" ng-click="beginTest()">Submit</button>
+          </div>
+        </div>
+      </div>
+
+      <div ng-repeat="(domain, results) in domains">
+        <div class="alert alert-success" ng-if="isEmpty(results)"><b>{{ domain }}</b> -- This domain validates</div>
+        <ul class="list-group" ng-if="!isEmpty(results)">
+          <li class="list-group-item list-group-item-danger"><b>{{ domain }}</b> -- This domain has some validation issues</li>
+          <li class="list-group-item {{ listGroupItemClassForValue(results.badDns) }}">
+            <span class="glyphicon {{ glyphiconClassForValue(results.badDns) }}"></span>
+            Your domain is valid (valid DNS)
+          </li>
+          <li class="list-group-item {{ listGroupItemClassForValue(results.httpsFailure) }}">
+            <span class="glyphicon {{ glyphiconClassForValue(results.httpsFailure) }}"></span>
+            Your file must be served over HTTPS
+          </li>
+          <li class="list-group-item {{ listGroupItemClassForValue(results.serverError) }}">
+            <span class="glyphicon {{ glyphiconClassForValue(results.serverError) }}"></span>
+            Your server shouldn't return an error status code (>= 400)
+          </li>
+          <li class="list-group-item {{ listGroupItemClassForValue(results.redirects) }}">
+            <span class="glyphicon {{ glyphiconClassForValue(results.redirects) }}"></span>
+            Your file cannot be behind redirects
+          </li>
+          <li  class="list-group-item {{ listGroupItemClassForValue(results.badContentType) }}">
+            <span class="glyphicon {{ glyphiconClassForValue(results.badContentType) }}"></span>
+            Your file must be served with content type "application/pkcs7-mime"
+          </li>
+        </ul>
+      </div>
+    </main>
+
+    <script src="//code.jquery.com/jquery-1.11.3.min.js"></script>
+    <script src="//maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+    <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.4.4/angular.js"></script>
+
+    <script src="/static/js/factories/DomainFactory.js"></script>
+    <script src="/static/js/controllers/MainController.js"></script>
+    <script src="/static/js/index.js"></script>
+  </body>
+</html>
