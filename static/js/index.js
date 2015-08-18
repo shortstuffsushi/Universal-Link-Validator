@@ -1,4 +1,4 @@
-var app = angular.module('UniversalLinkValidator', [ 'MainController' ]);
+var app = angular.module('UniversalLinkValidator', [ 'MainController', 'FileReadDirective' ]);
 app.config(function() {
 
 });

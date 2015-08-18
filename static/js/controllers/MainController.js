@@ -2,19 +2,24 @@ var module = angular.module('MainController', [ 'DomainFactory' ]);
 
 module.controller('MainController', [ '$scope', 'DomainFactory', function($scope, domainFactory) {
     $scope.domains = { };
+    $scope.domainInputVal = '';
+    $scope.ipaInput = false;
+
+    $scope.domainKeyUp = function(evt) {
+        if (evt.keyCode == 13) {
+            $scope.beginTest();
+        }
+    };
 
     $scope.beginTest = function() {
-        var domain = $('#domain').val();
-        var ipa = $('#ipa');
-
-        if (jQuery.isEmptyObject(domain) && jQuery.isEmptyObject(ipa.val())) {
+        if (!$scope.domainInputVal.length && !$scope.ipaInput) {
             alert('Domain or IPA required');
             return;
         }
 
-        if (ipa.val()) {
+        if ($scope.ipaInput) {
             var ipaFormData = new FormData();
-            ipaFormData.append('ipa', ipa[0].files[0]);
+            ipaFormData.append('ipa', $scope.ipaInput);
 
             domainFactory.testApp(ipaFormData)
                 .then(function(domains) {
@@ -25,7 +30,7 @@ module.controller('MainController', [ '$scope', 'DomainFactory', function($scope
                 });
         }
         else {
-            domainFactory.testDomain(domain)
+            domainFactory.testDomain($scope.domainInputVal)
                 .then(function(domains) {
                     $scope.domains = domains;
                 })

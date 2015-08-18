@@ -23,13 +23,13 @@
         <div class="form-group">
           <label class="col-sm-2 control-label">Domain</label>
           <div class="col-sm-4">
-            <input class="form-control" id="domain" type="text">
+            <input class="form-control" ng-model="domainInputVal" type="text" ng-keyup="domainKeyUp($event)">
           </div>
         </div>
         <div class="form-group">
           <label class="col-sm-2 control-label">App file</label>
           <div class="col-sm-4">
-            <input class="form-control" id="ipa" type="file">
+            <input class="form-control" fileread="ipaInput" type="file">
           </div>
         </div>
         <div class="form-group">
@@ -67,11 +67,10 @@
       </div>
     </main>
 
-    <script src="//code.jquery.com/jquery-1.11.3.min.js"></script>
-    <script src="//maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
     <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.4.4/angular.js"></script>
 
     <script src="/static/js/factories/DomainFactory.js"></script>
+    <script src="/static/js/directives/FileReadDirective.js"></script>
     <script src="/static/js/controllers/MainController.js"></script>
     <script src="/static/js/index.js"></script>
   </body>
