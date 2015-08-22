@@ -4,7 +4,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Universal Link Validator</title>
+
     <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+    <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.4.4/angular.js"></script>
   </head>
 
   <body ng-controller="MainController">
@@ -40,7 +42,7 @@
         <h6>Disclaimer: This product is in no way affiliated with Apple, and the results you see here do not guarantee that your setup will work with the actual Apple scraper. This is all my personal best guess at how things work, and things that have worked for me. None of the files or domains you use are stored on disk, they are deleted after the request completes.</h6>
       </div>
 
-      <div ng-repeat="(domain, results) in domains">
+      <div ng-repeat="(domain, results) in domains" ng-cloak>
         <div class="alert alert-success" ng-if="!isEmpty(results.aasa)">
           <b>{{ domain }}</b> -- This domain validates<br/><br/>
           <pre>{{ prettyPrintAASA(results.aasa) }}</pre>
@@ -74,8 +76,6 @@
         </ul>
       </div>
     </main>
-
-    <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.4.4/angular.js"></script>
 
     <script src="/static/js/factories/DomainFactory.js"></script>
     <script src="/static/js/directives/FileReadDirective.js"></script>
