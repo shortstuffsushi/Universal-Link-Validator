@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-US" lang="en-US" ng-app="UniversalLinkValidator" class="ng-scope">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Universal Link Validator</title>
+
+    <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+    <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.4.4/angular.js"></script>
+  </head>
+
+  <body ng-controller="MainController">
+    <nav class="navbar navbar-default navbar-static-top">
+      <div class="container">
+        <div class="navbar-header">
+          <a class="navbar-brand" href="/">Universal Link Validator</a>
+        </div>
+      </div>
+    </nav>
+
+    <main class="container ng-scope" ng-view>
+      <div class="well form-horizontal">
+        Enter your domain (e.g. foo.com) to check whether your apple-app-site-association is properly hosted. Alternatively, provide a archived app .ipa file, and we'll check that it contains the proper entitlements and validate any listed domains.
+        <br/><br/>
+        <div class="form-group">
+          <label class="col-sm-2 control-label">Domain</label>
+          <div class="col-sm-4">
+            <input class="form-control" ng-model="domainInputVal" type="text" ng-keyup="domainKeyUp($event)">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="col-sm-2 control-label">IPA file</label>
+          <div class="col-sm-4">
+            <input class="form-control" fileread="ipaInput" type="file">
+          </div>
+        </div>
+        <div class="form-group">
+          <div class="col-sm-offset-2 col-sm-1">
+            <button class="btn btn-primary" ng-click="beginTest()">Submit</button>
+          </div>
+        </div>
+        <h6>Disclaimer: This product is in no way affiliated with Apple, and the results you see here do not guarantee that your setup will work with the actual Apple scraper. This is all my personal best guess at how things work, and things that have worked for me. None of the files or domains you use are stored on disk, they are deleted after the request completes.</h6>
+      </div>
+
+      <div ng-repeat="(domain, results) in domains" ng-cloak>
+        <div class="alert alert-success" ng-if="!isEmpty(results.aasa)">
+          <b>{{ domain }}</b> -- This domain validates<br/><br/>
+          <pre>{{ prettyPrintAASA(results.aasa) }}</pre>
+        </div>
+        <ul class="list-group" ng-if="!isEmpty(results.errors)">
+          <li class="list-group-item list-group-item-danger"><b>{{ domain }}</b> -- This domain has some validation issues</li>
+          <li class="list-group-item {{ listGroupItemClassForValue(results.errors.badDns) }}">
+            <span class="glyphicon {{ glyphiconClassForValue(results.errors.badDns) }}"></span>
+            Your domain is valid (valid DNS)
+          </li>
+          <li class="list-group-item {{ listGroupItemClassForValue(results.errors.httpsFailure) }}">
+            <span class="glyphicon {{ glyphiconClassForValue(results.errors.httpsFailure) }}"></span>
+            Your file must be served over HTTPS
+          </li>
+          <li class="list-group-item {{ listGroupItemClassForValue(results.errors.serverError) }}">
+            <span class="glyphicon {{ glyphiconClassForValue(results.errors.serverError) }}"></span>
+            Your server shouldn't return an error status code (>= 400)
+          </li>
+          <li class="list-group-item {{ listGroupItemClassForValue(results.errors.redirects) }}">
+            <span class="glyphicon {{ glyphiconClassForValue(results.errors.redirects) }}"></span>
+            Your file cannot be behind redirects
+          </li>
+          <li  class="list-group-item {{ listGroupItemClassForValue(results.errors.badContentType) }}">
+            <span class="glyphicon {{ glyphiconClassForValue(results.errors.badContentType) }}"></span>
+            Your file must be served with content type "application/pkcs7-mime"
+          </li>
+          <li  class="list-group-item {{ listGroupItemClassForValue(results.errors.opensslVerifyFailed) }}">
+            <span class="glyphicon {{ glyphiconClassForValue(results.errors.opensslVerifyFailed) }}"></span>
+            Your file should validate and return its contents with `openssl smime -verify -inform DER -noverify`
+          </li>
+        </ul>
+      </div>
+    </main>
+
+    <script src="/static/js/factories/DomainFactory.js"></script>
+    <script src="/static/js/directives/FileReadDirective.js"></script>
+    <script src="/static/js/controllers/MainController.js"></script>
+    <script src="/static/js/index.js"></script>
+  </body>
+</html>
