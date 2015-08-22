@@ -1,3 +1,4 @@
+var newrelic = require('newrelic');
 var path = require('path');
 var fs = require('fs');
 var express = require('express');
@@ -9,7 +10,6 @@ var B = require('bluebird');
 var checkDomain = require('./checkDomain');
 var config = require('./config');
 var childProcesss = require('child_process');
-var newrelic = require('newrelic');
 
 var port = process.env.PORT || config.server.port || 3000;
 var app = express();
