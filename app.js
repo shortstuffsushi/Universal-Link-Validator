@@ -19,14 +19,16 @@ app.use('/', express.static('static'));
 
 app.post('/domain/:domain', function (httpReq, httpResp) {
     var domain = httpReq.params.domain;
+    var respObj = { domains: { } };
 
     return checkDomain(domain)
-        .then(function() {
-            httpResp.status(200).json({ });
+        .then(function(aasa) {
+            respObj.domains[domain] = { aasa: aasa };
+
+            httpResp.status(200).json(respObj);
         })
         .catch(function(errorObj) {
-            var respObj = { domains: { } };
-            respObj.domains[domain] = errorObj;
+            respObj.domains[domain] = { errors: errorObj };
 
             httpResp.status(400).json(respObj);
         });
@@ -36,12 +38,12 @@ function _checkAssociatedDomain(associatedDomain, respObj) {
     var domain = associatedDomain.substring(9);
 
     return checkDomain(domain)
-        .then(function() {
-            respObj.domains[domain] = { };
+        .then(function(aasa) {
+            respObj.domains[domain] = { aasa: aasa };
         })
         .catch(function(errorObj) {
             hasBadValue = true;
-            respObj.domains[domain] = errorObj;
+            respObj.domains[domain] = { errors: errorObj };
         });
 }
 

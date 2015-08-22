@@ -4,11 +4,8 @@ module.factory('DomainFactory', [ '$q', '$http', function($q, $http) {
     function _testDomain(domain) {
         return $q(function(resolve, reject) {
             $http.post('/domain/' + domain)
-                .then(function() {
-                    var domains = { };
-                    domains[domain] = { };
-
-                    resolve(domains);
+                .then(function(response) {
+                    resolve(response.data.domains);
                 }, function(response) {
                     var respObj = response.data;
 

@@ -63,6 +63,10 @@ module.controller('MainController', [ '$scope', 'DomainFactory', function($scope
     };
 
     $scope.isEmpty = function(obj) {
-        return Object.keys(obj).length == 0;
+        return obj === undefined || Object.keys(obj).length == 0;
+    }
+
+    $scope.prettyPrintAASA = function(aasa) {
+        return JSON.stringify(aasa, null, 4);
     }
 }]);
