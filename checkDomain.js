@@ -93,6 +93,9 @@ function _checkDomain(domain) {
                                     var domainAASAValue = JSON.parse(stdOut);
                                     resolve(domainAASAValue);
                                 }
+
+                                // Cleanup. Don't wait for this.
+                                fs.unlink(writePath);
                             });
                         });
                     }

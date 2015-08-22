@@ -8,10 +8,12 @@ var extract = require('extract-zip');
 var B = require('bluebird');
 var checkDomain = require('./checkDomain');
 var config = require('./config');
+var childProcesss = require('child_process');
+var newrelic = require('newrelic');
 
 var port = process.env.PORT || config.server.port || 3000;
 var app = express();
-var uploadDir = './tmp-app-files';
+var uploadDir = 'tmp-app-files';
 var upload = multer({ dest: uploadDir });
 
 app.use('/static', express.static('static'));
@@ -47,6 +49,10 @@ function _checkAssociatedDomain(associatedDomain, respObj) {
         });
 }
 
+function _cleanupAppFiles(ipaFile, extractedAppDir) {
+    childProcesss.exec('rm -rf ' + ipaFile + ' ' + extractedAppDir);
+}
+
 app.post('/app', upload.single('ipa'), function(httpReq, httpResp) {
     var ipa = httpReq.file;
     var appName = ipa.originalname.replace('.ipa', '');
@@ -56,6 +62,7 @@ app.post('/app', upload.single('ipa'), function(httpReq, httpResp) {
     extract(ipa.path, { dir: extractDir }, function(err) {
         if (err) {
             httpResp.status(500).json({ error: 'Failed to extract archive' });
+            _cleanupAppFiles(ipa.path, extractDir);
             return;
         }
 
@@ -64,6 +71,7 @@ app.post('/app', upload.single('ipa'), function(httpReq, httpResp) {
 
         if (!associatedDomains || !associatedDomains.length) {
             httpResp.status(400).json({ appInfo: { missingAssociatedDomain: true } });
+            _cleanupAppFiles(ipa.path, extractDir);
         }
         else {
             var respObj = { appInfo: { missingAssociatedDomain: false }, domains: { } };
@@ -90,6 +98,7 @@ app.post('/app', upload.single('ipa'), function(httpReq, httpResp) {
                 }
 
                 httpResp.json(respObj);
+                _cleanupAppFiles(ipa.path, extractDir);
             });
         }
     });

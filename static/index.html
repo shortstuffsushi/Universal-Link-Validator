@@ -18,7 +18,7 @@
 
     <main class="container ng-scope" ng-view>
       <div class="well form-horizontal">
-        Enter your domain (e.g. foo.com) to check whether your apple-app-site-association is properly hosted. Alternatively, provide a packaged app .ipa file, and we'll check that it contains the proper entitlements and validate any listed domains.
+        Enter your domain (e.g. foo.com) to check whether your apple-app-site-association is properly hosted. Alternatively, provide a archived app .ipa file, and we'll check that it contains the proper entitlements and validate any listed domains.
         <br/><br/>
         <div class="form-group">
           <label class="col-sm-2 control-label">Domain</label>
@@ -27,7 +27,7 @@
           </div>
         </div>
         <div class="form-group">
-          <label class="col-sm-2 control-label">App file</label>
+          <label class="col-sm-2 control-label">IPA file</label>
           <div class="col-sm-4">
             <input class="form-control" fileread="ipaInput" type="file">
           </div>
@@ -37,6 +37,7 @@
             <button class="btn btn-primary" ng-click="beginTest()">Submit</button>
           </div>
         </div>
+        <h6>Disclaimer: This product is in no way affiliated with Apple, and the results you see here do not guarantee that your setup will work with the actual Apple scraper. This is all my personal best guess at how things work, and things that have worked for me. None of the files or domains you use are stored on disk, they are deleted after the request completes.</h6>
       </div>
 
       <div ng-repeat="(domain, results) in domains">
