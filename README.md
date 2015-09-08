@@ -15,4 +15,5 @@ I decided to take a bit of time to put this together as a quick and easy way to 
   * The file must not use any redirects.
   * The file must have the MIME type `application/pkcs7-mime`.
   * The file must be CMS signed by a valid TLS certificate.
+
 [App Search Programming](https://developer.apple.com/library/prerelease/ios/documentation/General/Conceptual/AppSearch/UniversalLinks.html#//apple_ref/doc/uid/TP40016308-CH12) provides the expected format for UL specifically. I'm not currently validating this, but it would be an easy and useful add, as typos here would be a simple miss (things like typing the Team or Bundle ID wrong).
