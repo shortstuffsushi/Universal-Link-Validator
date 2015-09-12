@@ -36,7 +36,7 @@ function _checkDomain(domain) {
                         errorObj.httpsFailure = true;
                     }
                     else {
-                        console.log(err)
+                        console.log(err);
                     }
 
                     reject(errorObj);
