@@ -31,7 +31,7 @@ function _checkDomain(domain) {
                         errorObj.badDns = true;
                     }
                     // Doesn't support HTTPS
-                    else if (err.code == 'ECONNREFUSED') {
+                    else if (err.code == 'ECONNREFUSED' || err.message === 'Hostname/IP doesn\'t match certificate\'s altnames') {
                         errorObj.badDns = false;
                         errorObj.httpsFailure = true;
                     }
