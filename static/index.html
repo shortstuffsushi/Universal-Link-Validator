@@ -73,6 +73,10 @@
             <span class="glyphicon {{ glyphiconClassForValue(results.errors.opensslVerifyFailed) }}"></span>
             Your file should validate and return its contents with `openssl smime -verify -inform DER -noverify`
           </li>
+          <li  class="list-group-item {{ listGroupItemClassForValue(results.errors.invalidJson) }}">
+            <span class="glyphicon {{ glyphiconClassForValue(results.errors.invalidJson) }}"></span>
+            Your file should contain valid JSON (using simple JSON.parse). This can be tripped by things like having an extraneous NULL at the end of your string.
+          </li>
         </ul>
       </div>
     </main>

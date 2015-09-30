@@ -94,8 +94,17 @@ function _checkDomain(domain) {
                                     reject(errorObj);
                                 }
                                 else {
-                                    var domainAASAValue = JSON.parse(stdOut);
-                                    resolve(domainAASAValue);
+                                    errorObj.opensslVerifyFailed = false;
+
+                                    try {
+                                        var domainAASAValue = JSON.parse(stdOut);
+                                        resolve(domainAASAValue);
+                                    }
+                                    catch(e) {
+                                        console.log('Failed to parse:', stdOut, '\n\nError:', e);
+                                        errorObj.invalidJson = true;
+                                        reject(errorObj);
+                                    }
                                 }
 
                                 // Cleanup. Don't wait for this.
