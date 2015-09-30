@@ -11,6 +11,13 @@ module.controller('MainController', [ '$scope', 'DomainFactory', function($scope
         }
     };
 
+    $scope.cleanDomain = function() {
+        var url = $scope.domainInputVal;
+        url = url.replace(/https?:\/\//, '');
+        url = url.replace(/\/.*/, '');
+        $scope.domainInputVal = url;
+    };
+
     $scope.beginTest = function() {
         if (!$scope.domainInputVal.length && !$scope.ipaInput) {
             alert('Domain or IPA required');
@@ -30,6 +37,8 @@ module.controller('MainController', [ '$scope', 'DomainFactory', function($scope
                 });
         }
         else {
+            $scope.cleanDomain();
+
             domainFactory.testDomain($scope.domainInputVal)
                 .then(function(domains) {
                     $scope.domains = domains;
