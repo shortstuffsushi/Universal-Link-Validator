@@ -14,8 +14,8 @@ var _parse = function(res, done) {
 
 function _checkDomain(domain) {
     // Clean up domains, removing scheme and path
-        var cleanedDomain = domain.replace(/https?:\/\//, '');
-        cleanedDomain = cleanedDomain.replace(/\/.*/, '');
+    var cleanedDomain = domain.replace(/https?:\/\//, '');
+    cleanedDomain = cleanedDomain.replace(/\/.*/, '');
 
     var fileUrl = 'https://' + cleanedDomain + '/apple-app-site-association';
     var writePath = path.join('tmp-app-files', cleanedDomain);
