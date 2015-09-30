@@ -4,6 +4,7 @@ module.controller('MainController', [ '$scope', 'DomainFactory', function($scope
     $scope.domains = { };
     $scope.domainInputVal = '';
     $scope.ipaInput = false;
+    $scope.filename = '';
 
     $scope.domainKeyUp = function(evt) {
         if (evt.keyCode == 13) {
@@ -28,9 +29,10 @@ module.controller('MainController', [ '$scope', 'DomainFactory', function($scope
             var ipaFormData = new FormData();
             ipaFormData.append('ipa', $scope.ipaInput);
 
-            domainFactory.testApp(ipaFormData)
-                .then(function(domains) {
-                    $scope.domains = domains;
+            domainFactory.testApp($scope.appname, ipaFormData)
+                .then(function(resp) {
+                    $scope.appInfo = resp.appInfo;
+                    $scope.domains = resp.domains;
                 })
                 .catch(function(err) {
                     alert(err);

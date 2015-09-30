@@ -31,7 +31,16 @@
         <div class="form-group">
           <label class="col-sm-2 control-label">IPA file</label>
           <div class="col-sm-4">
-            <input class="form-control" fileread="ipaInput" type="file">
+            <input class="form-control" fileread="ipaInput" appnameset="appname" type="file">
+          </div>
+        </div>
+        <div class="form-group" ng-show="appname" ng-cloak>
+          <label class="col-sm-2 control-label">App Name</label>
+          <div class="col-sm-4">
+            <input class="form-control" type="text" ng-model="appname" ng-change="appInfo = undefined">
+          </div>
+          <div class="col-sm-4">
+            <span class="glyphicon glyphicon-alert control-label"></span>&nbsp;<span class="help-text">Ensure sure your app name is correct</span>
           </div>
         </div>
         <div class="form-group">
@@ -40,6 +49,25 @@
           </div>
         </div>
         <h6>Disclaimer: This product is in no way affiliated with Apple, and the results you see here do not guarantee that your setup will work with the actual Apple scraper. This is all my personal best guess at how things work, and things that have worked for me. None of the files or domains you use are stored on disk, they are deleted after the request completes.</h6>
+      </div>
+
+      <ul class="list-group" ng-hide="isEmpty(appInfo.errors)" ng-cloak>
+        <li class="list-group-item list-group-item-danger"><b>{{ appname }}</b> wasn't able to be loaded</li>
+        <li class="list-group-item {{ listGroupItemClassForValue(appInfo.errors.failedToExtract) }}">
+          <span class="glyphicon {{ glyphiconClassForValue(appInfo.errors.failedToExtract) }}"></span>
+          Must be able to extract application (should be of IPA format)
+        </li>
+        <li class="list-group-item {{ listGroupItemClassForValue(appInfo.errors.failedToLoadEntitlements) }}">
+          <span class="glyphicon {{ glyphiconClassForValue(appInfo.errors.failedToLoadEntitlements) }}"></span>
+          Must be able to find entitlements (looking in {{appname}}/Payload/{{appname}}.app/archived-expanded-entitlements.xcent)
+        </li>
+        <li class="list-group-item {{ listGroupItemClassForValue(appInfo.errors.missingAssociatedDomain) }}">
+          <span class="glyphicon {{ glyphiconClassForValue(appInfo.errors.missingAssociatedDomain) }}"></span>
+          Must have domains listed in com.apple.developer.associated-domains
+        </li>
+      </ul>
+      <div class="alert alert-success" ng-show="appInfo && isEmpty(appInfo.errors)" ng-cloak>
+        <b>{{ appname }} was successfully loaded
       </div>
 
       <div ng-repeat="(domain, results) in domains" ng-cloak>

@@ -53,54 +53,72 @@ function _cleanupAppFiles(ipaFile, extractedAppDir) {
     childProcesss.exec('rm -rf ' + ipaFile + ' ' + extractedAppDir);
 }
 
-app.post('/app', upload.single('ipa'), function(httpReq, httpResp) {
+app.post('/app/:appname', upload.single('ipa'), function(httpReq, httpResp) {
     var ipa = httpReq.file;
-    var appName = ipa.originalname.replace('.ipa', '');
-    var extractDir = path.join(uploadDir, appName);
-    var entitlementsFile = path.join(extractDir, 'Payload', appName + '.app', 'archived-expanded-entitlements.xcent');
+    var appname = httpReq.params.appname || ipa.originalname.replace('.ipa', '');
+    var extractDir = path.join(uploadDir, appname);
+    var entitlementsFile = path.join(extractDir, 'Payload', appname + '.app', 'archived-expanded-entitlements.xcent');
+    var respObj = { appInfo: { errors: { } }, domains: { } };
 
     extract(ipa.path, { dir: extractDir }, function(err) {
         if (err) {
-            httpResp.status(500).json({ error: 'Failed to extract archive' });
+            respObj.appInfo.errors.failedToExtract = true;
+            httpResp.status(400).json(respObj);
             _cleanupAppFiles(ipa.path, extractDir);
             return;
         }
 
-        var entitlements = plist.parse(fs.readFileSync(entitlementsFile, 'utf8'));
+        respObj.appInfo.errors.failedToExtract = false;
+
+        var entitlements;
+        try {
+            entitlements = plist.parse(fs.readFileSync(entitlementsFile, 'utf8'));
+        }
+        catch (e) {
+            respObj.appInfo.errors.failedToLoadEntitlements = true;
+            httpResp.status(400).json(respObj);
+            _cleanupAppFiles(ipa.path, extractDir);
+            return;
+        }
+
+        respObj.appInfo.errors.failedToLoadEntitlements = false;
+
         var associatedDomains = entitlements['com.apple.developer.associated-domains'];
 
         if (!associatedDomains || !associatedDomains.length) {
-            httpResp.status(400).json({ appInfo: { missingAssociatedDomain: true } });
+            respObj.appInfo.errors.missingAssociatedDomain = true
+            httpResp.status(400).json(respObj);
             _cleanupAppFiles(ipa.path, extractDir);
+            return;
         }
-        else {
-            var respObj = { appInfo: { missingAssociatedDomain: false }, domains: { } };
-            var domainPromises = [];
-            var hasBadValue = false;
 
-            for (var i = 0; i < associatedDomains.length; i++) {
-                var associatedDomain = associatedDomains[i];
-                if (!/applinks:.*?/.test(associatedDomain)) {
-                    hasBadValue = true;
-                    respObj.domains[associatedDomain] = { malformed: true };
-                }
-                else {
-                    domainPromises.push(_checkAssociatedDomain(associatedDomain, respObj));
-                }
+        respObj.appInfo.errors = undefined;
+        var domainPromises = [];
+        var hasBadValue = false;
+
+        for (var i = 0; i < associatedDomains.length; i++) {
+            var associatedDomain = associatedDomains[i];
+
+            if (!/applinks:.*?/.test(associatedDomain)) {
+                hasBadValue = true;
+                respObj.domains[associatedDomain] = { malformed: true };
+            }
+            else {
+                domainPromises.push(_checkAssociatedDomain(associatedDomain, respObj));
+            }
+        }
+
+        return B.all(domainPromises).then(function() {
+            if (!hasBadValue) {
+                httpResp.status(200);
+            }
+            else {
+                httpResp.status(400);
             }
 
-            return B.all(domainPromises).then(function() {
-                if (!hasBadValue) {
-                    httpResp.status(200);
-                }
-                else {
-                    httpResp.status(400);
-                }
-
-                httpResp.json(respObj);
-                _cleanupAppFiles(ipa.path, extractDir);
-            });
-        }
+            httpResp.json(respObj);
+            _cleanupAppFiles(ipa.path, extractDir);
+        });
     });
 });
 

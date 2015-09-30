@@ -19,26 +19,26 @@ module.factory('DomainFactory', [ '$q', '$http', function($q, $http) {
         });
     }
 
-    function _testApp(appFormData) {
+    function _testApp(appname, appFormData) {
         return $q(function(resolve, reject) {
             $http({
-                url: '/app',
+                url: '/app/' + appname,
                 method: 'POST',
                 data: appFormData,
                 headers: { 'Content-Type': undefined }
             })
             .then(function(response) {
-                    resolve(response);
-                }, function(response) {
-                    var respObj = response.data;
+                resolve(response.data);
+            }, function(response) {
+                var respObj = response.data;
 
-                    if (!respObj) {
-                        reject('A server error occurred while processing your request');
-                    }
-                    else {
-                        resolve(respObj.domains);
-                    }
-                });
+                if (!respObj) {
+                    reject('A server error occurred while processing your request');
+                }
+                else {
+                    resolve(respObj);
+                }
+            });
         });
     }
 
