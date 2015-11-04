@@ -82,12 +82,16 @@
       </div>
 
       <div ng-repeat="(domain, results) in domains" ng-cloak>
-        <div class="alert alert-success" ng-if="aasaValidAndIdentifiersMatched(results)">
-          <b>{{ domain }}</b> -- This domain validates<br/><br/>
+        <div class="alert alert-success" ng-if="aasaIsEntirelyValid(results)">
+          <b>{{ domain }}</b> -- This domain validates, JSON formta is valid, and Bundle / Team Identifiers match (if provided)<br/><br/>
           <pre>{{ prettyPrintAASA(results.aasa) }}</pre>
         </div>
         <div class="alert alert-warning" ng-if="aasaValidButIdentfiersDontMatch(results)">
           <b>{{ domain }}</b> -- This domain has a valid AASA, but does not contain provided Bundle / Team Identifiers<br/><br/>
+          <pre>{{ prettyPrintAASA(results.aasa) }}</pre>
+        </div>
+        <div class="alert alert-warning" ng-if="aasaValidButFormatInvalid(results)">
+          <b>{{ domain }}</b> -- This domain AASA was pulled, but the JSON format is Invalid<br/><br/>
           <pre>{{ prettyPrintAASA(results.aasa) }}</pre>
         </div>
         <ul class="list-group" ng-if="!isEmpty(results.errors)">

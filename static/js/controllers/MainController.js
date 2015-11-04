@@ -75,13 +75,17 @@ module.controller('MainController', [ '$scope', 'DomainFactory', function($scope
         return 'glyphicon-minus';
     };
 
-    $scope.aasaValidAndIdentifiersMatched = function(results) {
-        return results != undefined && (results.bundleIdentifierFound === true || results.bundleIdentifierFound === undefined);
+    $scope.aasaIsEntirelyValid = function(results) {
+        return results != undefined && results.jsonValid && (results.bundleIdentifierFound === true || results.bundleIdentifierFound === undefined);
     };
 
     $scope.aasaValidButIdentfiersDontMatch = function(results) {
         return results != undefined && results.bundleIdentifierFound === false;
     }
+
+    $scope.aasaValidButFormatInvalid = function(results) {
+        return results != undefined && results.jsonValid === false;
+    };
 
     $scope.isEmpty = function(obj) {
         return obj === undefined || Object.keys(obj).length == 0;

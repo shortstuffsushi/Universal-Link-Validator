@@ -12,7 +12,7 @@ var _parse = function(res, done) {
     res.on('end', done);
 };
 
-function _verifyBundleIdentifierIsPresent(aasa, bundleIdentifier, teamIdentifier) {
+function _verifyJsonFormat(aasa) {
     var applinks = aasa.applinks;
     if (!applinks) {
         return false;
@@ -23,12 +23,36 @@ function _verifyBundleIdentifierIsPresent(aasa, bundleIdentifier, teamIdentifier
         return false;
     }
 
+    // Domains are an array: [ { appID: '01234567890.com.foo.FooApp', paths: [ '*' ] } ]
+    if (details instanceof Array) {
+        for (var i = 0; i < details.length; i++) {
+            var domain = details[i];
+            if (!(domain.appID instanceof String && domain.paths instanceof Array)) {
+                return false;
+            }
+        }
+    }
+    // Domains are an object: { '01234567890.com.foo.FooApp': { paths: [ '*' ] } }
+    else {
+        for (var domain in details) {
+            if (!(details[domain].paths instanceof Array)) {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+function _verifyBundleIdentifierIsPresent(aasa, bundleIdentifier, teamIdentifier) {
     var regexString = bundleIdentifier.replace(/\./g, '\\.') + '$';
     if (teamIdentifier) {
         regexString = teamIdentifier + '\\.' + regexString;
     }
 
     var identifierRegex = new RegExp(regexString);
+
+    var details = aasa.applinks.details;
 
     // Domains are an array: [ { appID: '01234567890.com.foo.FooApp', paths: [ '*' ] } ]
     if (details instanceof Array) {
@@ -138,9 +162,12 @@ function _checkDomain(domain, bundleIdentifier, teamIdentifier) {
                                     try {
                                         var domainAASAValue = JSON.parse(stdOut);
 
-                                        var jsonValidationResult, bundleIdentifierResult;
-                                        if (bundleIdentifier) {
-                                            console.log('bundle identifier test')
+                                        // Make sure format is good.
+                                        var jsonValidationResult = _verifyJsonFormat(domainAASAValue);
+
+                                        // Only check bundle identifier if json is good and a bundle identifier to test against is present
+                                        var bundleIdentifierResult;
+                                        if (jsonValidationResult && bundleIdentifier) {
                                             bundleIdentifierResult =_verifyBundleIdentifierIsPresent(domainAASAValue, bundleIdentifier, teamIdentifier);
                                         }
 
