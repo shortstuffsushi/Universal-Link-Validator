@@ -21,11 +21,13 @@ app.use('/', express.static('static'));
 
 app.post('/domain/:domain', function (httpReq, httpResp) {
     var domain = httpReq.params.domain;
+    var bundleIdentifier = httpReq.query.bundleIdentifier;
+    var teamIdentifier = httpReq.query.teamIdentifier;
     var respObj = { domains: { } };
 
-    return checkDomain(domain)
-        .then(function(aasa) {
-            respObj.domains[domain] = { aasa: aasa };
+    return checkDomain(domain, bundleIdentifier, teamIdentifier)
+        .then(function(results) {
+            respObj.domains[domain] = results;
 
             httpResp.status(200).json(respObj);
         })
@@ -40,8 +42,8 @@ function _checkAssociatedDomain(associatedDomain, respObj) {
     var domain = associatedDomain.substring(9);
 
     return checkDomain(domain)
-        .then(function(aasa) {
-            respObj.domains[domain] = { aasa: aasa };
+        .then(function(results) {
+            respObj.domains[domain] = results;
         })
         .catch(function(errorObj) {
             hasBadValue = true;

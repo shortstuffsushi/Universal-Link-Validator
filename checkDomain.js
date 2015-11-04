@@ -12,7 +12,46 @@ var _parse = function(res, done) {
     res.on('end', done);
 };
 
-function _checkDomain(domain) {
+function _verifyBundleIdentifierIsPresent(aasa, bundleIdentifier, teamIdentifier) {
+    var applinks = aasa.applinks;
+    if (!applinks) {
+        return false;
+    }
+
+    var details = applinks.details;
+    if (!details) {
+        return false;
+    }
+
+    var regexString = bundleIdentifier.replace(/\./g, '\\.') + '$';
+    if (teamIdentifier) {
+        regexString = teamIdentifier + '\\.' + regexString;
+    }
+
+    var identifierRegex = new RegExp(regexString);
+
+    // Domains are an array: [ { appID: '01234567890.com.foo.FooApp', paths: [ '*' ] } ]
+    if (details instanceof Array) {
+        for (var i = 0; i < details.length; i++) {
+            var domain = details[i];
+            if (identifierRegex.test(domain.appID) && domain.paths instanceof Array) {
+                return true;
+            }
+        }
+    }
+    // Domains are an object: { '01234567890.com.foo.FooApp': { paths: [ '*' ] } }
+    else {
+        for (var domain in details) {
+            if (identifierRegex.test(domain) && details[domain].paths instanceof Array) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+function _checkDomain(domain, bundleIdentifier, teamIdentifier) {
     // Clean up domains, removing scheme and path
     var cleanedDomain = domain.replace(/https?:\/\//, '');
     cleanedDomain = cleanedDomain.replace(/\/.*/, '');
@@ -98,7 +137,14 @@ function _checkDomain(domain) {
 
                                     try {
                                         var domainAASAValue = JSON.parse(stdOut);
-                                        resolve(domainAASAValue);
+
+                                        var jsonValidationResult, bundleIdentifierResult;
+                                        if (bundleIdentifier) {
+                                            console.log('bundle identifier test')
+                                            bundleIdentifierResult =_verifyBundleIdentifierIsPresent(domainAASAValue, bundleIdentifier, teamIdentifier);
+                                        }
+
+                                        resolve({ aasa: domainAASAValue, jsonValid: jsonValidationResult, bundleIdentifierFound: bundleIdentifierResult });
                                     }
                                     catch(e) {
                                         console.log('Failed to parse:', stdOut, '\n\nError:', e);

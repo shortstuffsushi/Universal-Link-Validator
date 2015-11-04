@@ -20,14 +20,25 @@
 
     <main class="container ng-scope" ng-view>
       <div class="well form-horizontal">
-        Enter your domain (e.g. foo.com) to check whether your apple-app-site-association is properly hosted. Alternatively, provide a archived app .ipa file, and we'll check that it contains the proper entitlements and validate any listed domains.
+        Enter your domain (e.g. foo.com) to check whether your apple-app-site-association is properly hosted. Optionally, provide a Bundle identifier to validate the correct values from your project are present. For more accuracy, additionally provide your Team Identifier.
         <br/><br/>
         <div class="form-group">
           <label class="col-sm-2 control-label">Domain</label>
           <div class="col-sm-4">
-            <input class="form-control" ng-model="domainInputVal" type="text" ng-keyup="domainKeyUp($event)" ng-blur="cleanDomain($event)">
+            <input class="form-control" ng-model="domainInputVal" type="text" ng-keyup="keyUp($event)" ng-blur="cleanDomain($event)">
+          </div>
+          <label class="col-sm-2 control-label" ng-show="domainInputVal" ng-cloak>Bundle Identifier</label>
+          <div class="col-sm-4" ng-show="domainInputVal" ng-cloak>
+            <input class="form-control" ng-model="bundleIdentifier" type="text" ng-keyup="keyUp($event)">
           </div>
         </div>
+        <div class="form-group">
+          <label class="col-sm-offset-6 col-sm-2 control-label" ng-show="domainInputVal" ng-cloak>Team Identifier</label>
+          <div class="col-sm-4" ng-show="domainInputVal" ng-cloak>
+            <input class="form-control" ng-model="teamIdentifier" type="text" ng-keyup="keyUp($event)">
+          </div>
+        </div>
+        <div>Alternatively, provide a archived app .ipa file, and we'll check that it contains the proper entitlements and validate any listed domains.</div><br/>
         <div class="form-group">
           <label class="col-sm-2 control-label">IPA file</label>
           <div class="col-sm-4">
@@ -71,8 +82,12 @@
       </div>
 
       <div ng-repeat="(domain, results) in domains" ng-cloak>
-        <div class="alert alert-success" ng-if="!isEmpty(results.aasa)">
+        <div class="alert alert-success" ng-if="aasaValidAndIdentifiersMatched(results)">
           <b>{{ domain }}</b> -- This domain validates<br/><br/>
+          <pre>{{ prettyPrintAASA(results.aasa) }}</pre>
+        </div>
+        <div class="alert alert-warning" ng-if="aasaValidButIdentfiersDontMatch(results)">
+          <b>{{ domain }}</b> -- This domain has a valid AASA, but does not contain provided Bundle / Team Identifiers<br/><br/>
           <pre>{{ prettyPrintAASA(results.aasa) }}</pre>
         </div>
         <ul class="list-group" ng-if="!isEmpty(results.errors)">

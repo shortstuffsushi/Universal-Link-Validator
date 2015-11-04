@@ -3,10 +3,12 @@ var module = angular.module('MainController', [ 'DomainFactory' ]);
 module.controller('MainController', [ '$scope', 'DomainFactory', function($scope, domainFactory) {
     $scope.domains = { };
     $scope.domainInputVal = '';
+    $scope.bundleIdentifier = '';
+    $scope.teamIdentifier = '';
     $scope.ipaInput = false;
     $scope.filename = '';
 
-    $scope.domainKeyUp = function(evt) {
+    $scope.keyUp = function(evt) {
         if (evt.keyCode == 13) {
             $scope.beginTest();
         }
@@ -41,7 +43,7 @@ module.controller('MainController', [ '$scope', 'DomainFactory', function($scope
         else {
             $scope.cleanDomain();
 
-            domainFactory.testDomain($scope.domainInputVal)
+            domainFactory.testDomain($scope.domainInputVal, $scope.bundleIdentifier, $scope.teamIdentifier)
                 .then(function(domains) {
                     $scope.domains = domains;
                 })
@@ -73,11 +75,19 @@ module.controller('MainController', [ '$scope', 'DomainFactory', function($scope
         return 'glyphicon-minus';
     };
 
+    $scope.aasaValidAndIdentifiersMatched = function(results) {
+        return results != undefined && (results.bundleIdentifierFound === true || results.bundleIdentifierFound === undefined);
+    };
+
+    $scope.aasaValidButIdentfiersDontMatch = function(results) {
+        return results != undefined && results.bundleIdentifierFound === false;
+    }
+
     $scope.isEmpty = function(obj) {
         return obj === undefined || Object.keys(obj).length == 0;
-    }
+    };
 
     $scope.prettyPrintAASA = function(aasa) {
         return JSON.stringify(aasa, null, 4);
-    }
+    };
 }]);

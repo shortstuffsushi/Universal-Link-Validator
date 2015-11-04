@@ -1,9 +1,20 @@
 var module = angular.module('DomainFactory', [ ]);
 
 module.factory('DomainFactory', [ '$q', '$http', function($q, $http) {
-    function _testDomain(domain) {
+    function _testDomain(domain, bundleIdentifier, teamIdentifier) {
+        var requestUrl = '/domain/' + domain;
+
+        if (bundleIdentifier) {
+            requestUrl += '?bundleIdentifier=' + bundleIdentifier;
+
+            // Only try this if bundle identifier is present
+            if (teamIdentifier) {
+                requestUrl += '&teamIdentifier=' + teamIdentifier;
+            }
+        }
+
         return $q(function(resolve, reject) {
-            $http.post('/domain/' + domain)
+            $http.post(requestUrl)
                 .then(function(response) {
                     resolve(response.data.domains);
                 }, function(response) {
