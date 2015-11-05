@@ -97,7 +97,40 @@ function _evaluateAASA(content, bundleIdentifier, teamIdentifier, encrypted) {
     });
 }
 
-function _checkDomain(domain, bundleIdentifier, teamIdentifier) {
+function _writeAASAContentsToDiskAndValidate(writePath, content, bundleIdentifier, teamIdentifier) {
+    return new B(function(resolve, reject) {
+        // Write the file to disk. Probably don't actually *need* to do this,
+        // but I haven't figured out how to provide it to the process' stdin.
+        fs.writeFile(writePath, content, { encoding: 'binary' }, function(err) {
+            // TODO handle this as a 500 on our end
+            if (err) {
+                console.log('Failed to write aasa file to disk: ', err);
+                reject({ opensslVerifyFailed: true });
+                return;
+            }
+
+            // Now the fun part -- actually read the contents of the aasa file and verify they are properly formatted.
+            childProcess.exec('openssl smime -verify -inform DER -noverify -in ' + writePath, function(err, stdOut, stderr) {
+                if (err) {
+                    console.log('Failed to parse aasa file: ', stderr);
+                    reject({ opensslVerifyFailed: true });
+                }
+                else {
+                    return _evaluateAASA(stdOut, bundleIdentifier, teamIdentifier, true)
+                        .then(resolve)
+                        .catch(function() {
+                            reject({ opensslVerifyFailed: false, invalidJson: true });
+                        });
+                }
+
+                // Cleanup. Don't wait for this.
+                fs.unlink(writePath);
+            });
+        });
+    });
+}
+
+function _checkDomain(domain, bundleIdentifier, teamIdentifier, allowUnencrypted) {
     // Clean up domains, removing scheme and path
     var cleanedDomain = domain.replace(/https?:\/\//, '');
     cleanedDomain = cleanedDomain.replace(/\/.*/, '');
@@ -134,6 +167,10 @@ function _checkDomain(domain, bundleIdentifier, teamIdentifier) {
                     errorObj.badDns = false;
                     errorObj.httpsFailure = false;
 
+                    var isEncryptedMimeType = res.headers['content-type'] === 'application/pkcs7-mime';
+                    var isJsonMimeType = res.headers['content-type'] === 'application/json' || res.headers['content-type'] === 'text/json';
+                    var isJsonTypeOK = allowUnencrypted && isJsonMimeType; // Only ok if both the "allow" flag is true, and... it's a valid type.
+
                     // Bad server response
                     if (res.status >= 400) {
                         errorObj.serverError = true;
@@ -147,8 +184,8 @@ function _checkDomain(domain, bundleIdentifier, teamIdentifier) {
 
                         reject(errorObj);
                     }
-                    // Must have content-type of application/pkcs7-mime
-                    else if (res.headers['content-type'] !== 'application/pkcs7-mime') {
+                    // Must have content-type of application/pkcs7-mime, or if unencrypted, must be text/json or application/json
+                    else if (!isEncryptedMimeType && !isJsonTypeOK) {
                         errorObj.serverError = false;
                         errorObj.redirects = false;
                         errorObj.badContentType = true;
@@ -160,45 +197,29 @@ function _checkDomain(domain, bundleIdentifier, teamIdentifier) {
                         errorObj.redirects = false;
                         errorObj.badContentType = false;
 
-                        // Try to decode the JSON right away (this assumes the file is not encrypted)
-                        _evaluateAASA(res.text, bundleIdentifier, teamIdentifier, false)
-                            .then(resolve) // Not encrypted, send it back
-                            .catch(function() {// Encrypted, go through the rest of the process
-                                // Write the file to disk. Probably don't actually *need* to do this,
-                                // but I haven't figured out how to provide it to the process' stdin.
-                                fs.writeFile(writePath, res.text, { encoding: 'binary' }, function(err) {
-                                    // TODO handle this as a 500 on our end
-                                    if (err) {
-                                        console.log('Failed to write aasa file to disk: ', err);
-                                        errorObj.opensslVerifyFailed = true;
-                                        reject(errorObj);
-                                        return;
-                                    }
-
-                                    // Now the fun part -- actually read the contents of the aasa file and verify they are properly formatted.
-                                    childProcess.exec('openssl smime -verify -inform DER -noverify -in ' + writePath, function(err, stdOut, stderr) {
-                                        if (err) {
-                                            console.log('Failed to parse aasa file: ', stderr);
-                                            errorObj.opensslVerifyFailed = true;
-                                            reject(errorObj);
-                                        }
-                                        else {
-                                            errorObj.opensslVerifyFailed = false;
-
-                                            _evaluateAASA(stdOut, bundleIdentifier, teamIdentifier, true)
-                                                .then(resolve)
-                                                .catch(function(e) {
-                                                    console.log('Failed to parse:', stdOut, '\n\nError:', e);
-                                                    errorObj.invalidJson = true;
-                                                    reject(errorObj);
-                                                });
-                                        }
-
-                                        // Cleanup. Don't wait for this.
-                                        fs.unlink(writePath);
-                                    });
+                        if (allowUnencrypted) {
+                            // Try to decode the JSON right away (this assumes the file is not encrypted)
+                            _evaluateAASA(res.text, bundleIdentifier, teamIdentifier, false)
+                                .then(resolve) // Not encrypted, send it back
+                                .catch(function() { // Nope, encrypted. Go through the rest of the process
+                                    return _writeAASAContentsToDiskAndValidate(writePath, res.text, bundleIdentifier, teamIdentifier)
+                                })
+                                .then(resolve)
+                                .catch(function(err) {
+                                    errorObj.opensslVerifyFailed = err.opensslVerifyFailed;
+                                    errorObj.invalidJson = err.invalidJson;
+                                    reject(errorObj);
                                 });
-                            });
+                        }
+                        else {
+                            _writeAASAContentsToDiskAndValidate(writePath, res.text, bundleIdentifier, teamIdentifier)
+                                .then(resolve)
+                                .catch(function(err) {
+                                    errorObj.opensslVerifyFailed = err.opensslVerifyFailed;
+                                    errorObj.invalidJson = err.invalidJson;
+                                    reject(errorObj);
+                                });
+                        }
                     }
                 }
             });

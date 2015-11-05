@@ -7,7 +7,7 @@ module.controller('MainController', [ '$scope', 'DomainFactory', function($scope
     $scope.teamIdentifier = '';
     $scope.ipaInput = false;
     $scope.filename = '';
-    $scope.allowUnencrtyped = false;
+    $scope.allowUnencrypted = false;
 
     $scope.keyUp = function(evt) {
         if (evt.keyCode == 13) {
@@ -44,7 +44,7 @@ module.controller('MainController', [ '$scope', 'DomainFactory', function($scope
         else {
             $scope.cleanDomain();
 
-            domainFactory.testDomain($scope.domainInputVal, $scope.bundleIdentifier, $scope.teamIdentifier)
+            domainFactory.testDomain($scope.domainInputVal, $scope.bundleIdentifier, $scope.teamIdentifier, $scope.allowUnencrypted)
                 .then(function(domains) {
                     $scope.domains = domains;
                 })

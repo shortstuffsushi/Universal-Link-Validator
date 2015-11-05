@@ -1,11 +1,11 @@
 var module = angular.module('DomainFactory', [ ]);
 
 module.factory('DomainFactory', [ '$q', '$http', function($q, $http) {
-    function _testDomain(domain, bundleIdentifier, teamIdentifier) {
-        var requestUrl = '/domain/' + domain;
+    function _testDomain(domain, bundleIdentifier, teamIdentifier, allowUnencrypted) {
+        var requestUrl = '/domain/' + domain + '?allowUnencrypted=' + allowUnencrypted;
 
         if (bundleIdentifier) {
-            requestUrl += '?bundleIdentifier=' + bundleIdentifier;
+            requestUrl += '&bundleIdentifier=' + bundleIdentifier;
 
             // Only try this if bundle identifier is present
             if (teamIdentifier) {
