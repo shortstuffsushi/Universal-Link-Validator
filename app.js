@@ -9,7 +9,7 @@ var extract = require('extract-zip');
 var B = require('bluebird');
 var checkDomain = require('./checkDomain');
 var config = require('./config');
-var childProcesss = require('child_process');
+var childProcess = require('child_process');
 
 var port = process.env.PORT || config.server.port || 3000;
 var app = express();
@@ -39,10 +39,10 @@ app.post('/domain/:domain', function (httpReq, httpResp) {
         });
 });
 
-function _checkAssociatedDomain(associatedDomain, respObj) {
+function _checkAssociatedDomain(associatedDomain, bundleIdentifier, teamIdentifier, respObj) {
     var domain = associatedDomain.substring(9);
 
-    return checkDomain(domain)
+    return checkDomain(domain, bundleIdentifier, teamIdentifier)
         .then(function(results) {
             respObj.domains[domain] = results;
         })
@@ -53,7 +53,33 @@ function _checkAssociatedDomain(associatedDomain, respObj) {
 }
 
 function _cleanupAppFiles(ipaFile, extractedAppDir) {
-    childProcesss.exec('rm -rf ' + ipaFile + ' ' + extractedAppDir);
+    childProcess.exec('rm -rf ' + ipaFile + ' ' + extractedAppDir);
+}
+
+function _getAssociatedDomains(entitlementsFile) {
+    return new B(function(resolve, reject) {
+        try {
+            var entitlements = plist.parse(fs.readFileSync(entitlementsFile, 'utf8'));
+            resolve(entitlements['com.apple.developer.associated-domains']);
+        }
+        catch (e) {
+            reject(e);
+        }
+    });
+}
+
+function _getApplicationIdentifier(provisionFile) {
+    return new B(function(resolve, reject) {
+        childProcess.exec('openssl smime -verify -inform DER -noverify -in ' + provisionFile, function(err, stdOut, stderr) {
+            if (err) {
+                reject(err);
+            }
+            else {
+                var provision = plist.parse(stdOut);
+                resolve(provision.Entitlements['application-identifier']);
+            }
+        });
+    });
 }
 
 app.post('/app/:appname', upload.single('ipa'), function(httpReq, httpResp) {
@@ -61,6 +87,7 @@ app.post('/app/:appname', upload.single('ipa'), function(httpReq, httpResp) {
     var appname = httpReq.params.appname || ipa.originalname.replace('.ipa', '');
     var extractDir = path.join(uploadDir, appname);
     var entitlementsFile = path.join(extractDir, 'Payload', appname + '.app', 'archived-expanded-entitlements.xcent');
+    var provisionFile = path.join(extractDir, 'Payload', appname + '.app', 'embedded.mobileprovision');
     var respObj = { appInfo: { errors: { } }, domains: { } };
 
     extract(ipa.path, { dir: extractDir }, function(err) {
@@ -73,55 +100,57 @@ app.post('/app/:appname', upload.single('ipa'), function(httpReq, httpResp) {
 
         respObj.appInfo.errors.failedToExtract = false;
 
-        var entitlements;
-        try {
-            entitlements = plist.parse(fs.readFileSync(entitlementsFile, 'utf8'));
-        }
-        catch (e) {
-            respObj.appInfo.errors.failedToLoadEntitlements = true;
-            httpResp.status(400).json(respObj);
-            _cleanupAppFiles(ipa.path, extractDir);
-            return;
-        }
+        var domainsPromise = _getAssociatedDomains(entitlementsFile);
+        var bundleIdentifierPromise = _getApplicationIdentifier(provisionFile);
 
-        respObj.appInfo.errors.failedToLoadEntitlements = false;
+        B.all([ domainsPromise, bundleIdentifierPromise ])
+            .spread(function(associatedDomains, applicationIdentifier ) {
+                respObj.appInfo.errors.failedToLoadEntitlements = false;
 
-        var associatedDomains = entitlements['com.apple.developer.associated-domains'];
+                if (!associatedDomains || !associatedDomains.length) {
+                    respObj.appInfo.errors.missingAssociatedDomain = true
+                    httpResp.status(400).json(respObj);
+                    _cleanupAppFiles(ipa.path, extractDir);
+                    return;
+                }
 
-        if (!associatedDomains || !associatedDomains.length) {
-            respObj.appInfo.errors.missingAssociatedDomain = true
-            httpResp.status(400).json(respObj);
-            _cleanupAppFiles(ipa.path, extractDir);
-            return;
-        }
+                var applicationIdentifierPieces = applicationIdentifier.split('.');
+                var teamIdentifier = applicationIdentifierPieces.shift();
+                var bundleIdentifier = applicationIdentifierPieces.join('.');
 
-        respObj.appInfo.errors = undefined;
-        var domainPromises = [];
-        var hasBadValue = false;
+                respObj.appInfo.errors = undefined;
+                var domainPromises = [];
+                var hasBadValue = false;
 
-        for (var i = 0; i < associatedDomains.length; i++) {
-            var associatedDomain = associatedDomains[i];
+                for (var i = 0; i < associatedDomains.length; i++) {
+                    var associatedDomain = associatedDomains[i];
 
-            if (!/applinks:.*?/.test(associatedDomain)) {
-                hasBadValue = true;
-                respObj.domains[associatedDomain] = { malformed: true };
-            }
-            else {
-                domainPromises.push(_checkAssociatedDomain(associatedDomain, respObj));
-            }
-        }
+                    if (!/applinks:.*?/.test(associatedDomain)) {
+                        hasBadValue = true;
+                        respObj.domains[associatedDomain] = { malformed: true };
+                    }
+                    else {
+                        domainPromises.push(_checkAssociatedDomain(associatedDomain, bundleIdentifier, teamIdentifier, respObj));
+                    }
+                }
 
-        return B.all(domainPromises).then(function() {
-            if (!hasBadValue) {
-                httpResp.status(200);
-            }
-            else {
-                httpResp.status(400);
-            }
+                return B.all(domainPromises).then(function() {
+                    if (!hasBadValue) {
+                        httpResp.status(200);
+                    }
+                    else {
+                        httpResp.status(400);
+                    }
 
-            httpResp.json(respObj);
-            _cleanupAppFiles(ipa.path, extractDir);
-        });
+                    httpResp.json(respObj);
+                    _cleanupAppFiles(ipa.path, extractDir);
+                });
+            })
+            .catch(function() {
+                respObj.appInfo.errors.failedToLoadEntitlements = true;
+                httpResp.status(400).json(respObj);
+                _cleanupAppFiles(ipa.path, extractDir);
+            });
     });
 });
 
