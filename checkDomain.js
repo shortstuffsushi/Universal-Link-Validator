@@ -27,7 +27,7 @@ function _verifyJsonFormat(aasa) {
     if (details instanceof Array) {
         for (var i = 0; i < details.length; i++) {
             var domain = details[i];
-            if (!(domain.appID instanceof String && domain.paths instanceof Array)) {
+            if (!(typeof domain.appID === 'string' && domain.paths instanceof Array)) {
                 return false;
             }
         }
