@@ -75,6 +75,28 @@ function _verifyBundleIdentifierIsPresent(aasa, bundleIdentifier, teamIdentifier
     return false;
 }
 
+function _evaluateAASA(content, bundleIdentifier, teamIdentifier, encrypted) {
+    return new B(function(resolve, reject) {
+        try {
+            var domainAASAValue = JSON.parse(content);
+
+            // Make sure format is good.
+            var jsonValidationResult = _verifyJsonFormat(domainAASAValue);
+
+            // Only check bundle identifier if json is good and a bundle identifier to test against is present
+            var bundleIdentifierResult;
+            if (jsonValidationResult && bundleIdentifier) {
+                bundleIdentifierResult =_verifyBundleIdentifierIsPresent(domainAASAValue, bundleIdentifier, teamIdentifier);
+            }
+
+            resolve({ encrypted: encrypted, aasa: domainAASAValue, jsonValid: jsonValidationResult, bundleIdentifierFound: bundleIdentifierResult });
+        }
+        catch (e) {
+            reject(e);
+        }
+    });
+}
+
 function _checkDomain(domain, bundleIdentifier, teamIdentifier) {
     // Clean up domains, removing scheme and path
     var cleanedDomain = domain.replace(/https?:\/\//, '');
@@ -138,52 +160,45 @@ function _checkDomain(domain, bundleIdentifier, teamIdentifier) {
                         errorObj.redirects = false;
                         errorObj.badContentType = false;
 
-                        // Write the file to disk. Probably don't actually *need* to do this,
-                        // but I haven't figured out how to provide it to the process' stdin.
-                        fs.writeFile(writePath, res.text, { encoding: 'binary' }, function(err) {
-                            // TODO handle this as a 500 on our end
-                            if (err) {
-                                console.log('Failed to write aasa file to disk: ', err);
-                                errorObj.opensslVerifyFailed = true;
-                                reject(errorObj);
-                                return;
-                            }
+                        // Try to decode the JSON right away (this assumes the file is not encrypted)
+                        _evaluateAASA(res.text, bundleIdentifier, teamIdentifier, false)
+                            .then(resolve) // Not encrypted, send it back
+                            .catch(function() {// Encrypted, go through the rest of the process
+                                // Write the file to disk. Probably don't actually *need* to do this,
+                                // but I haven't figured out how to provide it to the process' stdin.
+                                fs.writeFile(writePath, res.text, { encoding: 'binary' }, function(err) {
+                                    // TODO handle this as a 500 on our end
+                                    if (err) {
+                                        console.log('Failed to write aasa file to disk: ', err);
+                                        errorObj.opensslVerifyFailed = true;
+                                        reject(errorObj);
+                                        return;
+                                    }
 
-                            // Now the fun part -- actually read the contents of the aasa file and verify they are properly formatted.
-                            childProcess.exec('openssl smime -verify -inform DER -noverify -in ' + writePath, function(err, stdOut, stderr) {
-                                if (err) {
-                                    console.log('Failed to parse aasa file: ', stderr);
-                                    errorObj.opensslVerifyFailed = true;
-                                    reject(errorObj);
-                                }
-                                else {
-                                    errorObj.opensslVerifyFailed = false;
+                                    // Now the fun part -- actually read the contents of the aasa file and verify they are properly formatted.
+                                    childProcess.exec('openssl smime -verify -inform DER -noverify -in ' + writePath, function(err, stdOut, stderr) {
+                                        if (err) {
+                                            console.log('Failed to parse aasa file: ', stderr);
+                                            errorObj.opensslVerifyFailed = true;
+                                            reject(errorObj);
+                                        }
+                                        else {
+                                            errorObj.opensslVerifyFailed = false;
 
-                                    try {
-                                        var domainAASAValue = JSON.parse(stdOut);
-
-                                        // Make sure format is good.
-                                        var jsonValidationResult = _verifyJsonFormat(domainAASAValue);
-
-                                        // Only check bundle identifier if json is good and a bundle identifier to test against is present
-                                        var bundleIdentifierResult;
-                                        if (jsonValidationResult && bundleIdentifier) {
-                                            bundleIdentifierResult =_verifyBundleIdentifierIsPresent(domainAASAValue, bundleIdentifier, teamIdentifier);
+                                            _evaluateAASA(stdOut, bundleIdentifier, teamIdentifier, true)
+                                                .then(resolve)
+                                                .catch(function(e) {
+                                                    console.log('Failed to parse:', stdOut, '\n\nError:', e);
+                                                    errorObj.invalidJson = true;
+                                                    reject(errorObj);
+                                                });
                                         }
 
-                                        resolve({ aasa: domainAASAValue, jsonValid: jsonValidationResult, bundleIdentifierFound: bundleIdentifierResult });
-                                    }
-                                    catch(e) {
-                                        console.log('Failed to parse:', stdOut, '\n\nError:', e);
-                                        errorObj.invalidJson = true;
-                                        reject(errorObj);
-                                    }
-                                }
-
-                                // Cleanup. Don't wait for this.
-                                fs.unlink(writePath);
+                                        // Cleanup. Don't wait for this.
+                                        fs.unlink(writePath);
+                                    });
+                                });
                             });
-                        });
                     }
                 }
             });

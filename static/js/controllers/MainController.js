@@ -7,6 +7,7 @@ module.controller('MainController', [ '$scope', 'DomainFactory', function($scope
     $scope.teamIdentifier = '';
     $scope.ipaInput = false;
     $scope.filename = '';
+    $scope.allowUnencrtyped = false;
 
     $scope.keyUp = function(evt) {
         if (evt.keyCode == 13) {

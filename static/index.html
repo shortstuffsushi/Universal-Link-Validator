@@ -33,7 +33,10 @@
           </div>
         </div>
         <div class="form-group">
-          <label class="col-sm-offset-6 col-sm-2 control-label" ng-show="domainInputVal" ng-cloak>Team Identifier</label>
+          <label class="col-sm-offset-2 col-sm-4">
+            <input type="checkbox"> Allow unencrypted AASA files
+          </label>
+          <label class="col-sm-2 control-label" ng-show="domainInputVal" ng-cloak>Team Identifier</label>
           <div class="col-sm-4" ng-show="domainInputVal" ng-cloak>
             <input class="form-control" ng-model="teamIdentifier" type="text" ng-keyup="keyUp($event)">
           </div>
