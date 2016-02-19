@@ -110,8 +110,12 @@ function _writeAASAContentsToDiskAndValidate(writePath, content, bundleIdentifie
             }
 
             // Now the fun part -- actually read the contents of the aasa file and verify they are properly formatted.
-            childProcess.exec('openssl smime -verify -inform DER -noverify -in ' + writePath, function(err, stdOut, stderr) {
+            // Note, some people are hosting *TONS* of these items, which results in large stdOut buffer. To make this
+            // work for most cases, I've upped the buffer from 200kb default to 1mb. This still won't handle all cases,
+            // but I think it'll cover a reasonable amount.
+            childProcess.exec('openssl smime -verify -inform DER -noverify -in ' + writePath, { maxBuffer: 1024 * 1024 }, function(err, stdOut, stderr) {
                 if (err) {
+                    console.log(err);
                     console.log('Failed to parse aasa file: ', stderr);
                     reject({ opensslVerifyFailed: true });
                 }
