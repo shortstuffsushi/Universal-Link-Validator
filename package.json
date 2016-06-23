@@ -11,7 +11,6 @@
     "bluebird": "^2.9.34",
     "express": "~4.13.3",
     "extract-zip": "^1.0.3",
-    "jade": "~1.11.0",
     "morgan": "^1.7.0",
     "multer": "^1.0.3",
     "newrelic": "^1.22.0",
