@@ -193,13 +193,13 @@ function _loadAASAContents(domain) {
         winston.info('Making Well Known request to', wellKnownPath);
 
         // Try the Well Known path first, which should be the default now
-        return _makeRequest(wellKnownPath)
+        _makeRequest(wellKnownPath)
             .then(function(res) {
                 // Fallback to aasa path in the case that the well known fails (300 means failure as well)
                 if (res.status >= 300) {
                     winston.info('Well Known has invalid status, fallback request to', aasaPath);
 
-                    return _makeRequest(aasaPath)
+                    _makeRequest(aasaPath)
                         .then(function(innerRes) {
                             // If we still get an error, we've failed
                             if (innerRes.status >= 400) {
@@ -296,7 +296,8 @@ function _checkDomain(domain, bundleIdentifier, teamIdentifier, allowUnencrypted
                             });
                     }
                 }
-            });
+            })
+            .catch(reject);
         });
 }
 
