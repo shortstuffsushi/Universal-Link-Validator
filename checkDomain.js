@@ -3,6 +3,7 @@ var superagent = require('superagent');
 var childProcess = require('child_process');
 var fs = require('fs');
 var path = require('path');
+var winston = require('winston');
 
 // Override the default behavior of superagent, which encodes to UTF-8.
 var _parse = function(res, done) {
@@ -13,13 +14,17 @@ var _parse = function(res, done) {
 };
 
 function _verifyJsonFormat(aasa) {
+    winston.info('Verifying JSON contents');
+
     var applinks = aasa.applinks;
     if (!applinks) {
+        winston.info('Missing applinks region');
         return false;
     }
 
     var details = applinks.details;
     if (!details) {
+        winston.info('Missing applinks/details region');
         return false;
     }
 
@@ -28,6 +33,7 @@ function _verifyJsonFormat(aasa) {
         for (var i = 0; i < details.length; i++) {
             var domain = details[i];
             if (!(typeof domain.appID === 'string' && domain.paths instanceof Array)) {
+                winston.info('Invalid detail format for details as array');
                 return false;
             }
         }
@@ -36,22 +42,25 @@ function _verifyJsonFormat(aasa) {
     else {
         for (var domain in details) {
             if (!(details[domain].paths instanceof Array)) {
+                winston.info('Invalid detail format for details as object');
                 return false;
             }
         }
     }
 
+    winston.info('JSON contents are valid');
     return true;
 }
 
 function _verifyBundleIdentifierIsPresent(aasa, bundleIdentifier, teamIdentifier) {
+    winston.info('Searching for team and bundle id');
+
     var regexString = bundleIdentifier.replace(/\./g, '\\.') + '$';
     if (teamIdentifier) {
         regexString = teamIdentifier + '\\.' + regexString;
     }
 
     var identifierRegex = new RegExp(regexString);
-
     var details = aasa.applinks.details;
 
     // Domains are an array: [ { appID: '01234567890.com.foo.FooApp', paths: [ '*' ] } ]
@@ -59,6 +68,7 @@ function _verifyBundleIdentifierIsPresent(aasa, bundleIdentifier, teamIdentifier
         for (var i = 0; i < details.length; i++) {
             var domain = details[i];
             if (identifierRegex.test(domain.appID) && domain.paths instanceof Array) {
+                winston.info('Team/Bundle found for team for details as array');
                 return true;
             }
         }
@@ -67,17 +77,20 @@ function _verifyBundleIdentifierIsPresent(aasa, bundleIdentifier, teamIdentifier
     else {
         for (var domain in details) {
             if (identifierRegex.test(domain) && details[domain].paths instanceof Array) {
+                winston.info('Team/Bundle found for team for details as object');
                 return true;
             }
         }
     }
 
+    winston.info('Team/Bundle not found in AASA');
     return false;
 }
 
 function _evaluateAASA(content, bundleIdentifier, teamIdentifier, encrypted) {
     return new B(function(resolve, reject) {
         try {
+            winston.info('Trying to parse AASA content');
             var domainAASAValue = JSON.parse(content);
 
             // Make sure format is good.
@@ -86,12 +99,13 @@ function _evaluateAASA(content, bundleIdentifier, teamIdentifier, encrypted) {
             // Only check bundle identifier if json is good and a bundle identifier to test against is present
             var bundleIdentifierResult;
             if (jsonValidationResult && bundleIdentifier) {
-                bundleIdentifierResult =_verifyBundleIdentifierIsPresent(domainAASAValue, bundleIdentifier, teamIdentifier);
+                bundleIdentifierResult = _verifyBundleIdentifierIsPresent(domainAASAValue, bundleIdentifier, teamIdentifier);
             }
 
             resolve({ encrypted: encrypted, aasa: domainAASAValue, jsonValid: jsonValidationResult, bundleIdentifierFound: bundleIdentifierResult });
         }
         catch (e) {
+            winston.info('Failed to parse AASA content');
             reject(e);
         }
     });
@@ -104,7 +118,7 @@ function _writeAASAContentsToDiskAndValidate(writePath, content, bundleIdentifie
         fs.writeFile(writePath, content, { encoding: 'binary' }, function(err) {
             // TODO handle this as a 500 on our end
             if (err) {
-                console.log('Failed to write aasa file to disk: ', err);
+                winston.error('Failed to write aasa file to disk: ', err);
                 reject({ opensslVerifyFailed: true });
                 return;
             }
@@ -115,8 +129,8 @@ function _writeAASAContentsToDiskAndValidate(writePath, content, bundleIdentifie
             // but I think it'll cover a reasonable amount.
             childProcess.exec('openssl smime -verify -inform DER -noverify -in ' + writePath, { maxBuffer: 1024 * 1024 }, function(err, stdOut, stderr) {
                 if (err) {
-                    console.log(err);
-                    console.log('Failed to parse aasa file: ', stderr);
+                    winston.info(err);
+                    winston.info('Failed to parse aasa file: ', stderr);
                     reject({ opensslVerifyFailed: true });
                 }
                 else {
@@ -134,24 +148,21 @@ function _writeAASAContentsToDiskAndValidate(writePath, content, bundleIdentifie
     });
 }
 
-function _checkDomain(domain, bundleIdentifier, teamIdentifier, allowUnencrypted) {
-    // Clean up domains, removing scheme and path
-    var cleanedDomain = domain.replace(/https?:\/\//, '');
-    cleanedDomain = cleanedDomain.replace(/\/.*/, '');
-
-    var fileUrl = 'https://' + cleanedDomain + '/apple-app-site-association';
-    var writePath = path.join('tmp-app-files', cleanedDomain);
-
+function _makeRequest(url) {
     return new B(function(resolve, reject) {
-        var errorObj = { };
+        winston.debug('Superagent request to', url);
 
         superagent
-            .get(fileUrl)
+            .get(url)
             .redirects(0)
             .buffer()
             .parse(_parse)
             .end(function(err, res) {
+                winston.debug('Superagent request to', url, 'completed');
+
                 if (err && !res) {
+                    var errorObj = { };
+
                     // Unable to resolve DNS name
                     if (err.code == 'ENOTFOUND') {
                         errorObj.badDns = true;
@@ -168,66 +179,125 @@ function _checkDomain(domain, bundleIdentifier, teamIdentifier, allowUnencrypted
                     reject(errorObj);
                 }
                 else {
-                    errorObj.badDns = false;
-                    errorObj.httpsFailure = false;
-
-                    var isEncryptedMimeType = res.headers['content-type'] === 'application/pkcs7-mime';
-                    var isJsonMimeType = res.headers['content-type'] === 'application/json' || res.headers['content-type'] === 'text/json';
-                    var isJsonTypeOK = allowUnencrypted && isJsonMimeType; // Only ok if both the "allow" flag is true, and... it's a valid type.
-
-                    // Bad server response
-                    if (res.status >= 400) {
-                        errorObj.serverError = true;
-
-                        reject(errorObj);
-                    }
-                    // No redirects allowed
-                    else if (res.status >= 300) {
-                        errorObj.serverError = false;
-                        errorObj.redirects = true
-
-                        reject(errorObj);
-                    }
-                    // Must have content-type of application/pkcs7-mime, or if unencrypted, must be text/json or application/json
-                    else if (!isEncryptedMimeType && !isJsonTypeOK) {
-                        errorObj.serverError = false;
-                        errorObj.redirects = false;
-                        errorObj.badContentType = true;
-
-                        reject(errorObj);
-                    }
-                    else {
-                        errorObj.serverError = false;
-                        errorObj.redirects = false;
-                        errorObj.badContentType = false;
-
-                        if (allowUnencrypted) {
-                            // Try to decode the JSON right away (this assumes the file is not encrypted)
-                            _evaluateAASA(res.text, bundleIdentifier, teamIdentifier, false)
-                                .then(resolve) // Not encrypted, send it back
-                                .catch(function() { // Nope, encrypted. Go through the rest of the process
-                                    return _writeAASAContentsToDiskAndValidate(writePath, res.text, bundleIdentifier, teamIdentifier)
-                                })
-                                .then(resolve)
-                                .catch(function(err) {
-                                    errorObj.opensslVerifyFailed = err.opensslVerifyFailed;
-                                    errorObj.invalidJson = err.invalidJson;
-                                    reject(errorObj);
-                                });
-                        }
-                        else {
-                            _writeAASAContentsToDiskAndValidate(writePath, res.text, bundleIdentifier, teamIdentifier)
-                                .then(resolve)
-                                .catch(function(err) {
-                                    errorObj.opensslVerifyFailed = err.opensslVerifyFailed;
-                                    errorObj.invalidJson = err.invalidJson;
-                                    reject(errorObj);
-                                });
-                        }
-                    }
+                    resolve(res);
                 }
             });
     });
+}
+
+function _loadAASAContents(domain) {
+    var wellKnownPath = 'https://' + domain + '/.well-known/apple-app-site-association';
+    var aasaPath = 'https://' + domain + '/apple-app-site-association';
+
+    return new B(function(resolve, reject) {
+        winston.info('Making Well Known request to', wellKnownPath);
+
+        // Try the Well Known path first, which should be the default now
+        return _makeRequest(wellKnownPath)
+            .then(function(res) {
+                // Fallback to aasa path in the case that the well known fails (300 means failure as well)
+                if (res.status >= 300) {
+                    winston.info('Well Known has invalid status, fallback request to', aasaPath);
+
+                    return _makeRequest(aasaPath)
+                        .then(function(innerRes) {
+                            // If we still get an error, we've failed
+                            if (innerRes.status >= 400) {
+                                winston.info('Fallback has invalid status, sending server error result');
+
+                                reject({
+                                    badDns: false,
+                                    httpsFailure: false,
+                                    serverError: true
+                                });
+                            }
+                            else {
+                                winston.info('Fallback lookup successful');
+                                resolve(innerRes);
+                            }
+                        });
+                }
+                else {
+                    winston.info('Well Known lookup successful');
+                    resolve(res);
+                }
+            })
+            .catch(reject);
+    });
+}
+
+function _checkDomain(domain, bundleIdentifier, teamIdentifier, allowUnencrypted) {
+    // Clean up domains, removing scheme and path
+    var cleanedDomain = domain.replace(/https?:\/\//, '');
+    cleanedDomain = cleanedDomain.replace(/\/.*/, '');
+
+    var writePath = path.join('tmp-app-files', cleanedDomain);
+
+    winston.info('Starting domain check for', cleanedDomain);
+
+    return new B(function(resolve, reject) {
+        _loadAASAContents(cleanedDomain)
+            .then(function(res) {
+                winston.info('Evaluating AASA response');
+
+                // If we make it here, we know we have a valid dns and ssl connection, and no server error
+                var errorObj = { badDns: false, httpsFailure: false, serverError: false };
+
+                var isEncryptedMimeType = res.headers['content-type'] === 'application/pkcs7-mime';
+                var isJsonMimeType = res.headers['content-type'] === 'application/json' || res.headers['content-type'] === 'text/json';
+                var isJsonTypeOK = allowUnencrypted && isJsonMimeType; // Only ok if both the "allow" flag is true, and... it's a valid type.
+
+                // No redirects allowed
+                if (res.status >= 300) {
+                    winston.info('Invalid redirect');
+                    errorObj.redirects = true
+
+                    reject(errorObj);
+                }
+                // Must have content-type of application/pkcs7-mime, or if unencrypted, must be text/json or application/json
+                else if (!isEncryptedMimeType && !isJsonTypeOK) {
+                    winston.info('Invalid content-type');
+                    errorObj.redirects = false;
+                    errorObj.badContentType = true;
+
+                    reject(errorObj);
+                }
+                else {
+                    errorObj.redirects = false;
+                    errorObj.badContentType = false;
+
+                    if (allowUnencrypted) {
+                        winston.info('Unencrypted files are allowed, trying direct evaluation');
+
+                        // Try to decode the JSON right away (this assumes the file is not encrypted)
+                        // If it's not encrypted, we'll just return it
+                        return _evaluateAASA(res.text, bundleIdentifier, teamIdentifier, false)
+                            .then(resolve)
+                            .catch(function() { // The file is encrypted. Go through the rest of the process
+                                winston.info('Direct evaluation failed, indicating file is possibly encrypyted');
+                                return _writeAASAContentsToDiskAndValidate(writePath, res.text, bundleIdentifier, teamIdentifier)
+                            })
+                            .then(resolve)
+                            // Another failure here indicates the file is not valid
+                            .catch(function(err) {
+                                errorObj.opensslVerifyFailed = err.opensslVerifyFailed;
+                                errorObj.invalidJson = err.invalidJson;
+                                reject(errorObj);
+                            });
+                    }
+                    else {
+                        // Decrypt and evaluate file
+                        return _writeAASAContentsToDiskAndValidate(writePath, res.text, bundleIdentifier, teamIdentifier)
+                            .then(resolve)
+                            .catch(function(err) {
+                                errorObj.opensslVerifyFailed = err.opensslVerifyFailed;
+                                errorObj.invalidJson = err.invalidJson;
+                                reject(errorObj);
+                            });
+                    }
+                }
+            });
+        });
 }
 
 module.exports = _checkDomain;

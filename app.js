@@ -10,12 +10,15 @@ var B = require('bluebird');
 var checkDomain = require('./checkDomain');
 var config = require('./config');
 var childProcess = require('child_process');
+var morgan = require('morgan');
+var winston = require('winston');
 
 var port = process.env.PORT || config.server.port || 3000;
 var app = express();
 var uploadDir = 'tmp-app-files';
 var upload = multer({ dest: uploadDir });
 
+app.use(morgan('tiny'));
 app.use('/static', express.static('static'));
 app.use('/', express.static('static'));
 
@@ -90,6 +93,7 @@ app.post('/app/:appname', upload.single('ipa'), function(httpReq, httpResp) {
     var provisionFile = path.join(extractDir, 'Payload', appname + '.app', 'embedded.mobileprovision');
     var respObj = { appInfo: { errors: { } }, domains: { } };
 
+    winston.info('Starting app extract for', appname);
     extract(ipa.path, { dir: extractDir }, function(err) {
         if (err) {
             respObj.appInfo.errors.failedToExtract = true;
@@ -155,5 +159,5 @@ app.post('/app/:appname', upload.single('ipa'), function(httpReq, httpResp) {
 });
 
 var server = app.listen(port, function() {
-    console.log('Server running on port ' + port);
+    winston.info('Server running on port ' + port);
 });
